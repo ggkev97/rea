@@ -1,0 +1,1 @@
+The app icon at Assets.xcassets/AppIcon.appiconset/icon-1024.png is a placeholder. The launch screen in LaunchScreen.storyboard is a placeholder. Neither is a finished brand asset. Replace both before any App Store listing. Do not describe them as final artwork.

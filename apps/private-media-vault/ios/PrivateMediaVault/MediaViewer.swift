@@ -6,6 +6,7 @@ import VaultCore
 struct MediaViewer: View {
     @Environment(VaultModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let startID: UUID
     var queue: [UUID]? = nil
 
@@ -27,6 +28,7 @@ struct MediaViewer: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .automatic))
+            .animation(reduceMotion ? nil : .default, value: index)
             .background(VaultTheme.background)
             .navigationTitle(currentItem?.originalFilename ?? "Media")
             .navigationBarTitleDisplayMode(.inline)
@@ -92,7 +94,8 @@ struct ViewerPage: View {
                 thumbnail
             }
         }
-        .task(id: id) {
+        .task(id: "\(id.uuidString)-\(active)") {
+            guard active else { return }
             guard item?.mediaKind != .video, item?.mediaKind != .livePhoto else { return }
             if let data = model.imageData(for: id) {
                 still = UIImage(data: data)

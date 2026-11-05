@@ -323,8 +323,19 @@ final class VaultCoreTests: XCTestCase {
         XCTAssertTrue(left.coverVisible)
         let locked = manual.handle(.manualLock)
         XCTAssertTrue(locked.shouldLock)
-        let returned = coordinator.handle(.becameActive)
+        let returned = coordinator.handle(.becameActive(Date(timeIntervalSince1970: 80)))
         XCTAssertTrue(returned.coverVisible)
+
+        var resume = PrivacyCoordinator(configuration: LockConfiguration(autoLock: .after(30)))
+        _ = resume.handle(.didUnlock)
+        _ = resume.handle(.enteredBackground(Date(timeIntervalSince1970: 200)))
+        let stillOpen = resume.handle(.becameActive(Date(timeIntervalSince1970: 210)))
+        XCTAssertFalse(stillOpen.shouldLock)
+        XCTAssertFalse(stillOpen.coverVisible)
+        _ = resume.handle(.enteredBackground(Date(timeIntervalSince1970: 220)))
+        let expired = resume.handle(.becameActive(Date(timeIntervalSince1970: 260)))
+        XCTAssertTrue(expired.shouldLock)
+        XCTAssertTrue(expired.shouldClearCaches)
     }
 
     func testAssistantIsMetadataOnlyAndLoopbackRejectsOtherHosts() throws {

@@ -13,7 +13,7 @@ public struct LockConfiguration: Equatable {
 }
 
 public enum PrivacyEvent: Equatable {
-    case becameActive
+    case becameActive(Date)
     case resignedActive
     case enteredBackground(Date)
     case manualLock
@@ -51,7 +51,10 @@ public struct PrivacyCoordinator {
             case .manual:
                 lockDeadline = nil
             }
-        case .becameActive:
+        case .becameActive(let date):
+            if let lockDeadline, date >= lockDeadline {
+                return lockNow()
+            }
             if unlocked { coverVisible = false }
         case .manualLock:
             return lockNow()

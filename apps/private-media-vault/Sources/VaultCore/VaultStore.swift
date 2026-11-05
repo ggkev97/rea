@@ -80,6 +80,13 @@ public final class VaultStore {
         try recoverIfNeeded()
     }
 
+    deinit {
+        let readers = openReaders
+        openReaders.removeAll()
+        readers.forEach { $0.close() }
+        masterKey.wipe()
+    }
+
     public func lock() {
         let readers = openReaders
         openReaders.removeAll()

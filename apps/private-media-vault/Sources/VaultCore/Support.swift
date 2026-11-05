@@ -319,12 +319,21 @@ enum RecoveryKeyCodec {
                 output.append(UInt8((buffer >> bits) & 0xff))
             }
         }
-        if bits > 0 && ((buffer << (8 - bits)) & 0xff) != 0 && output.count != 32 {
-            throw VaultError.authenticationFailed
+        if bits > 0 {
+            let leftoverMask = (1 << bits) - 1
+            guard (buffer & leftoverMask) == 0 else { throw VaultError.authenticationFailed }
         }
-        guard output.count >= 32 else { throw VaultError.authenticationFailed }
-        return Array(output.prefix(32))
+        guard output.count == 32 else { throw VaultError.authenticationFailed }
+        return output
     }
+}
+
+public enum VaultFormats {
+    public static let backupVersion = 1
+    public static let catalogContainerVersion = 1
+    public static let chunkContainerVersion = 1
+    /// One decrypted range stays within this size. Video playback and export ask for 1 MiB slices.
+    public static let maximumPlaintextRangeBytes = 64 * 1024 * 1024
 }
 
 enum SecretCompare {

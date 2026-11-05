@@ -1,0 +1,38 @@
+name: Private media vault
+
+on:
+  pull_request:
+    paths:
+      - "apps/private-media-vault/**"
+      - ".github/workflows/private-media-vault.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/private-media-vault/**"
+      - ".github/workflows/private-media-vault.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-media-vault-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vault:
+    name: VaultCore tests and unsigned simulator build
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Test the portable vault core
+        run: swift test --package-path apps/private-media-vault
+      - name: Build the iOS app for the simulator without signing
+        run: >-
+          xcodebuild
+          -project apps/private-media-vault/ios/PrivateMediaVault.xcodeproj
+          -scheme PrivateMediaVault
+          -destination "generic/platform=iOS Simulator"
+          -configuration Debug
+          CODE_SIGNING_ALLOWED=NO
+          build

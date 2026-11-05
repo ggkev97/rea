@@ -51,6 +51,22 @@ struct LibraryGrid: View {
 
     var body: some View {
         ScrollView {
+            if let statusMessage = model.statusMessage {
+                Text(statusMessage)
+                    .font(.callout)
+                    .foregroundStyle(VaultTheme.warning)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .accessibilityLabel(statusMessage)
+            }
+            if model.items.isEmpty {
+                ContentUnavailableView(
+                    "No media yet",
+                    systemImage: "lock.rectangle.stack",
+                    description: Text("Import from Photos, Files, or the camera. Nothing is deleted from the place it came from.")
+                )
+                .frame(minHeight: 240)
+            }
             LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(model.items) { item in
                     Button {
@@ -190,12 +206,17 @@ struct BulkBar: View {
     var body: some View {
         HStack {
             Button("Favourite") { model.toggleFavorite(ids) }
+                .frame(minHeight: 44)
+                .accessibilityHint("Toggles the favourite mark on the selected items")
             Menu("Album") {
                 ForEach(model.albums) { album in
                     Button(album.name) { model.add(ids, to: album.id) }
                 }
             }
+            .accessibilityLabel("Add selected items to an album")
             Button("Trash") { model.trash(ids) }
+                .frame(minHeight: 44)
+                .accessibilityHint("Moves the selected items to trash. Restore them from Trash until they are purged.")
         }
         .frame(maxWidth: .infinity, minHeight: 44)
         .padding(.horizontal)

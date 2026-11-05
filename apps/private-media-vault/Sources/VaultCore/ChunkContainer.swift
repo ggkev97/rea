@@ -66,6 +66,7 @@ public final class ChunkedReader {
 
     public func plaintext(byteRange: Range<Int>) throws -> Data {
         guard !closed else { throw VaultError.locked }
+        guard byteRange.count <= VaultFormats.maximumPlaintextRangeBytes else { throw VaultError.limitExceeded }
         let plan = try ChunkRangePlanner.chunks(
             covering: byteRange,
             chunkSize: chunkSize,

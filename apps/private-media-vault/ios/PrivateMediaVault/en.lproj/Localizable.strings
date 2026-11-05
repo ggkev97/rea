@@ -1,0 +1,11 @@
+/* User-facing copy. SwiftUI Text literals use the English string as the key.
+   Add a translation by copying this file into another .lproj and changing the values. */
+"No media yet" = "No media yet";
+"Import from Photos, Files, or the camera. Nothing is deleted from the place it came from." = "Import from Photos, Files, or the camera. Nothing is deleted from the place it came from.";
+"This vault needs a device passcode. Face ID is the shortcut. The passcode is the fallback, and anyone who knows it can unlock the vault." = "This vault needs a device passcode. Face ID is the shortcut. The passcode is the fallback, and anyone who knows it can unlock the vault.";
+"Unlock was cancelled." = "Unlock was cancelled.";
+"This still is too large to open in memory. Export it to view it outside the vault." = "This still is too large to open in memory. Export it to view it outside the vault.";
+"Some files opened from another app could not be imported. The originals were left in place." = "Some files opened from another app could not be imported. The originals were left in place.";
+"Unlock" = "Unlock";
+"Recovery key" = "Recovery key";
+"Write this down outside the phone. Copying it places it on the system pasteboard. It is not stored in the backup and it is not written to the vault log." = "Write this down outside the phone. Copying it places it on the system pasteboard. It is not stored in the backup and it is not written to the vault log.";

@@ -202,40 +202,100 @@ links are the paths that do not need an extension.
 
 ## Tests that ran
 
-Command, from a machine with Swift 6.4.2:
+Command:
 
 ```sh
 cd apps/private-media-vault
 swift test
 ```
 
-On 5 November 2026 that command was run on Ubuntu 24.04 x86_64 with Swift
-6.4.2 and swift-crypto 5.1.1. Result: `VaultCoreTests`, 12 tests, 0 failures.
-The cases cover wrong keys, truncated and flipped containers, export byte
-equality, source files left untouched, a quota failure during import, crash
-checkpoints before the journal, after the journal, and after the catalog
-commit, corrupt journal and catalog files left undeleted, backup and restore,
-a wrong recovery key, a tampered backup, schema 1 migration and rejection of
-schema 99, live-motion export, trash retention, the lock state machine, and
-assistant routes that must not reach the vault.
+Re-run on 5 November 2026 on Ubuntu 24.04 x86_64 with Swift 6.4.2 and
+swift-crypto 5.1.1. Result: 18 tests, 0 failures (`VaultCoreTests` 12,
+`HardeningTests` 6). The added cases cover a non-canonical recovery key, key
+wiping, autolock that expires while the app is suspended, a bounded video byte
+range, rejection of backup format version 99, idempotent schema migration,
+rejection of a future catalog container version without deleting blobs, and
+thumbnail recovery after a crash.
 
 Those tests do not call UIKit, LocalAuthentication, Security, Photos,
 AVFoundation, Network, or App Intents. A green Linux run is not an iPhone run.
+The GitHub Actions workflow `.github/workflows/private-media-vault.yml` is
+configured for a macOS 15 runner. It had not been executed when this document
+was written.
 
-## Release checklist
+Apple-only scaffolds live in `ios/PrivateMediaVaultAppleTests/` and
+`ios/PrivateMediaVaultUITests/`. They skip instead of pretending to pass, and
+they are not in the default scheme's test action. They were not run here.
 
-| Check                                                      | State                                                 |
-| ---------------------------------------------------------- | ----------------------------------------------------- |
-| VaultCore tests on Swift 6.4.2 / Linux                     | Ran, 12 passed                                        |
-| Xcode build of the iOS target                              | Not run. No compatible Mac in this environment        |
-| Install on iPhone 17 Pro Max with a Personal Team          | Not run                                               |
-| Face ID, passcode fallback, Keychain prompt                | Not run                                               |
-| Photos, Files, camera, Open In, link download on device    | Not run                                               |
-| AVFoundation playback of a large video                     | Not run. Range planning and chunk decrypt were tested |
-| 7-day profile expiry with data still present after re-sign | Not run                                               |
-| Share extension signing                                    | Not attempted. Target is omitted                      |
-| Grok or any remote assistant                               | Not connected                                         |
-| Security review by another person                          | Not done                                              |
+## Release-readiness checklist
+
+This list does not say the app is production-ready or audited.
+
+### DONE (verified)
+
+- Portable AES-256-GCM chunk format, wrong-key failure, truncation, and a
+  flipped ciphertext byte. Verified by Swift tests on Linux.
+- Recovery key roundtrip, confused characters, rejection of a longer or shorter
+  string, and redaction after wipe. Verified by Swift tests.
+- Backup create/restore, wrong recovery key, tampered payload, and rejection of
+  backup version 99 without leaving a catalog. Verified by Swift tests.
+- Import rollback on a simulated disk-full quota, crash checkpoints, corrupt
+  journal and catalog left in place, and thumbnail recovery. Verified by Swift
+  tests.
+- Export byte equality, including a live-motion clip, and a hash mismatch that
+  removes the partial plaintext file. Verified by Swift tests.
+- Schema 1 migrates to schema 2, a second open keeps the item, schema 99 and a
+  broken catalog document fail closed. Verified by Swift tests.
+- A decrypted video range is the requested slice, and a range above 64 MiB is
+  rejected. Verified by Swift tests. Peak memory of AVFoundation was not
+  measured.
+- Autolock deadline is enforced when the app becomes active again, not only
+  while a timer can run. Verified on the lock state machine, not on iOS.
+- Assistant routes for unlock, delete, and export do not reach vault data.
+  Verified by Swift tests.
+
+### DONE (unverified on device)
+
+- Keychain item with user presence and this-device-only accessibility, Face ID
+  prompt, and passcode fallback. Source is in `KeychainMasterKeyStore.swift`.
+  Not executed.
+- `NSFileProtectionComplete` and backup exclusion. Source is in
+  `IOSFileHooks.swift`. Not executed.
+- Photos picker, Files import, camera, Open In, and https link download. Source
+  is in the app target. Not executed.
+- Chunked `AVAssetResourceLoader` playback, resume, and continuous play. The
+  byte-range helper was tested. AVFoundation was not.
+- Neutral cover when the scene is inactive, and lock on background. The policy
+  object was tested. UIKit scene transitions were not.
+- Usage strings for camera, microphone, and Face ID. Photo library access is
+  intentionally not requested. Not shown on a device.
+- `PrivacyInfo.xcprivacy` declares no tracking, no collected data types, and
+  UserDefaults reason `CA92.1` only. Not reviewed by App Store Connect.
+- English `Localizable.strings` and `InfoPlist.strings`. Not exercised in a
+  second language.
+- Placeholder icon and launch screen, marked in `PLACEHOLDER-ASSETS.txt`.
+- Empty library, import error text, and recovery-key VoiceOver hint. Not run
+  in an accessibility audit.
+- App Store privacy-label notes in `docs/app-store-privacy-label.md`. Notes
+  only.
+
+### BLOCKED
+
+- A signed install on iPhone 17 Pro Max. Needs a Mac whose OS can run an Xcode
+  that supports the phone's iOS version, plus the free Personal Team prompt.
+  Monterey 12.7.6 and Windows cannot do this.
+- Observing the 7-day Personal Team expiry without losing media. Needs that
+  signed install and a portable backup made by a person.
+- Share extension signing. The extension is not a build target. App Groups on a
+  free Personal Team were not verified.
+- App Store submission, TestFlight, and a paid Developer Program enrollment.
+  Not purchased and not performed.
+- Encryption export-compliance paperwork. `ITSAppUsesNonExemptEncryption` is
+  intentionally unset.
+- External security review. None was done.
+- The macOS GitHub Actions workflow. It is in the repository and had not
+  produced a run when this checklist was written.
+- Grok or any remote assistant connection. Not connected.
 
 ## Remaining prerequisites
 
@@ -246,6 +306,8 @@ AVFoundation, Network, or App Intents. A green Linux run is not an iPhone run.
 - A written copy of each backup's recovery key, stored outside the phone.
 - Decide the bundle id before the first install. Changing it later is a
   different app and an empty vault.
+- A person to replace the placeholder icon and launch screen, answer export
+  compliance, and review the privacy label before any store listing.
 
-Do not treat this directory as an REA feature. Do not ship it as a reviewed
+Do not treat this directory as an REA feature. Do not describe it as a reviewed
 vault.

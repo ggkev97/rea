@@ -57,21 +57,26 @@ final class VaultModel {
     func unlock() async {
         phase = .unlocking
         do {
-            let key = try await keychain.loadOrCreate()
-            let opened = try VaultStore(directory: vaultDirectory, masterKey: key, hooks: hooks)
-            store = opened
-            masterKey = key
-            try refresh()
-            try importInbox()
-            phase = .unlocked
-            _ = coordinator.handle(.didUnlock)
-            coverVisible = false
-            statusMessage = nil
+            var key = try await keychain.loadOrCreate()
+            do {
+                let opened = try VaultStore(directory: vaultDirectory, masterKey: key, hooks: hooks)
+                store = opened
+                masterKey = key
+                try refresh()
+                importInbox()
+                phase = .unlocked
+                _ = coordinator.handle(.didUnlock)
+                coverVisible = false
+                statusMessage = nil
+            } catch {
+                key.wipe()
+                throw error
+            }
         } catch KeychainVaultError.passcodeRequired {
-            phase = .failed("This vault needs a device passcode. Face ID is the shortcut; the passcode is the fallback and the Keychain requirement. Anyone who knows that passcode can unlock the vault.")
+            phase = .failed(String(localized: "This vault needs a device passcode. Face ID is the shortcut. The passcode is the fallback, and anyone who knows it can unlock the vault.", comment: "Shown when the device has no passcode."))
         } catch KeychainVaultError.authenticationFailed {
             phase = .locked
-            statusMessage = "Unlock was cancelled."
+            statusMessage = String(localized: "Unlock was cancelled.", comment: "Shown when Face ID or the device passcode prompt is cancelled.")
         } catch {
             phase = .failed(publicMessage(error))
         }
@@ -99,22 +104,18 @@ final class VaultModel {
         let decision: PrivacyDecision
         switch phase {
         case .active:
-            decision = coordinator.handle(.becameActive)
-            coverVisible = false
+            decision = coordinator.handle(.becameActive(now))
         case .inactive:
             decision = coordinator.handle(.resignedActive)
-            coverVisible = true
         case .background:
             decision = coordinator.handle(.enteredBackground(now))
-            coverVisible = true
         @unknown default:
             decision = coordinator.handle(.resignedActive)
-            coverVisible = true
         }
-        if decision.shouldLock || decision.shouldClearCaches {
+        if decision.shouldLock {
             lock()
-            coverVisible = phase != .active
         }
+        coverVisible = phase != .active
     }
 
     func setAutoLock(_ value: AutoLock) {
@@ -207,14 +208,22 @@ final class VaultModel {
         }
     }
 
-    func importInbox() throws {
+    func importInbox() {
         let inbox = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Inbox", isDirectory: true)
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: inbox.path) else { return }
+        var failed = 0
         for name in names {
             let url = inbox.appendingPathComponent(name)
-            try importFile(url, source: .openIn)
-            try? FileManager.default.removeItem(at: url)
+            do {
+                try importFile(url, source: .openIn)
+                try? FileManager.default.removeItem(at: url)
+            } catch {
+                failed += 1
+            }
+        }
+        if failed > 0 {
+            statusMessage = String(localized: "Some files opened from another app could not be imported. The originals were left in place.", comment: "Shown when one or more Inbox files fail to import.")
         }
     }
 
@@ -319,6 +328,12 @@ final class VaultModel {
 
     func imageData(for id: UUID) -> Data? {
         guard let store else { return nil }
+        guard let item = items.first(where: { $0.id == id }) else { return nil }
+        guard item.mediaKind == .image || item.mediaKind == .other else { return nil }
+        guard item.byteCount <= VaultFormats.maximumPlaintextRangeBytes else {
+            statusMessage = String(localized: "This still is too large to open in memory. Export it to view it outside the vault.", comment: "Shown when a still image exceeds the in-memory limit.")
+            return nil
+        }
         guard let reader = try? store.reader(for: id) else { return nil }
         defer { reader.close() }
         return try? reader.plaintext(byteRange: 0 ..< reader.plaintextLength)
@@ -336,9 +351,10 @@ final class VaultModel {
     func prepareBackup() throws {
         guard let store else { throw VaultError.locked }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("vault-\(UUID().uuidString).pmvb")
-        let recovery = try store.createBackup(to: url)
+        var recovery = try store.createBackup(to: url)
         backupFile = url
         recoveryKeyDisplay = recovery.display
+        recovery.wipe()
     }
 
     func clearRecoveryDisplay() {
@@ -354,7 +370,8 @@ final class VaultModel {
     func restoreBackup(from url: URL, keyText: String) async throws {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        let recovery = try RecoveryKey.parse(keyText)
+        var recovery = try RecoveryKey.parse(keyText)
+        defer { recovery.wipe() }
         let key = try VaultStore.replaceVault(from: url, recoveryKey: recovery, vaultDirectory: vaultDirectory)
         try await keychain.replace(key)
         store?.lock()

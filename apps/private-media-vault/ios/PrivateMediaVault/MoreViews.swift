@@ -93,6 +93,7 @@ struct BackupView: View {
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
                         .accessibilityLabel("Recovery key")
+                        .accessibilityHint("Write this down outside the phone. Copying it places it on the system pasteboard. It is not stored in the backup and it is not written to the vault log.")
                     Toggle("I wrote this key down outside the phone", isOn: $confirmed)
                     Button("Save the backup file") { showExporter = true }
                         .disabled(!confirmed)

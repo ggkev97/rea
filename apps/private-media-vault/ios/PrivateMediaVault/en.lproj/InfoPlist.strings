@@ -1,0 +1,4 @@
+/* Usage descriptions. The English text is also the localization key. */
+"NSCameraUsageDescription" = "The camera captures photos and videos directly into the encrypted vault. Captures are not added to the Photos library.";
+"NSFaceIDUsageDescription" = "Face ID unlocks the vault. The device passcode is the fallback. Anyone who knows that passcode can unlock the vault.";
+"NSMicrophoneUsageDescription" = "The microphone records audio for videos captured into the vault.";

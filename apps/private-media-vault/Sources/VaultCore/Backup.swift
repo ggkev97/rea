@@ -27,7 +27,7 @@ enum BackupArchive {
             }
         }
         var header = Data("PMVB".utf8)
-        Binary.append(UInt16(1), to: &header)
+        Binary.append(UInt16(VaultFormats.backupVersion), to: &header)
         header.append(salt)
         header.append(wrapped.nonce)
         header.append(wrapped.ciphertext)
@@ -63,8 +63,18 @@ enum BackupArchive {
         } else {
             try FileManager.default.createDirectory(at: vaultDirectory, withIntermediateDirectories: true)
         }
+        do {
+            return try restoreOwnedDirectory(from: backup, recoveryKey: recoveryKey, to: vaultDirectory)
+        } catch {
+            shredTree(vaultDirectory)
+            throw error
+        }
+    }
+
+    private static func restoreOwnedDirectory(from backup: URL, recoveryKey: RecoveryKey, to vaultDirectory: URL) throws -> MasterKey {
         let headerCount = 98
         let handle = try FileHandle(forReadingFrom: backup)
+        defer { try? handle.close() }
         guard let header = try handle.read(upToCount: headerCount), header.count == headerCount else {
             try? handle.close()
             throw VaultError.truncated
@@ -75,7 +85,7 @@ enum BackupArchive {
         }
         var offset = 4
         let version = try Binary.readUInt16(header, &offset)
-        guard version == 1 else { throw VaultError.unsupportedVersion(Int(version)) }
+        guard version == VaultFormats.backupVersion else { throw VaultError.unsupportedVersion(Int(version)) }
         let salt = header.subdata(in: offset ..< offset + 32)
         offset += 32
         let nonce = header.subdata(in: offset ..< offset + 12)
